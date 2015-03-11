@@ -8,7 +8,7 @@ double Setpoint, Input, Output;
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
 
 //Specify the links and initial tuning parameters
-PID myPID(&Input, &Output, &Setpoint,1,10,100, DIRECT);
+PID myPID(&Input, &Output, &Setpoint,0.01,1.5,0, DIRECT);
 
 //Adafruit motorshield
 Adafruit_MotorShield motorShield = Adafruit_MotorShield();
@@ -21,8 +21,8 @@ const int MPU=0x68;    //I2C address of the MPU
 void setup()
 {
   //PID
-  Input = GyY;
-  Setpoint = 0;
+  Input = AcX;
+  Setpoint = 127;
   myPID.SetMode(AUTOMATIC); //turn the PID on
   
   //MPU Communications
@@ -46,6 +46,7 @@ void loop()
    Input = AcX;
    myPID.Compute();
    move(Output); 
+   Serial.println(Output);
 }
 
 void get_gyro()
@@ -73,34 +74,14 @@ void move(int output)
   //GO MOTORS FORWARD.
   //if output is positive (bigger than zero) Robot is falling backwards.
   //GO MOTORS BACKWARDS.
-    int ratio;
-
-  ratio = map(output, -10000 ,10000, 0, 250);
-   if(ratio < 0)
-   {
-    ratio = 0; 
-   }
-   else if(ratio > 250)
-   {
-    ratio = 250; 
-   }
-   
-  Serial.println(AcX);
-   Serial.println(output);
-  if(output > 125) {
+  leftMotor->setSpeed(abs(output));
+  rightMotor->setSpeed(abs(output));
+  if(output > 0){
     leftMotor->run(BACKWARD);
     rightMotor->run(BACKWARD);
-    Serial.println("Backward");
-  } else if(output < 125) {
+
+  } else if(output < 0) {
     leftMotor->run(FORWARD);
     rightMotor->run(FORWARD);
-    Serial.println("Forward");
-  } else {
-     leftMotor->run(RELEASE);
-    rightMotor->run(RELEASE);
-    Serial.println("RELEASE");
   }
-  
-  leftMotor->setSpeed(ratio);
-  rightMotor->setSpeed(ratio);
 }
