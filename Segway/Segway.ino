@@ -49,6 +49,10 @@ void loop()
    Serial.println(Output);
 }
 
+//Function reads registers in MPU and assigned them to variables.
+//AcX, Y, and Z can be seen as "position"
+//GyX, Y, and Z are the speed in which the segway is falling
+//Refer to the MPU6050 code found online.
 void get_gyro()
 {
   Wire.beginTransmission(MPU);
@@ -74,8 +78,10 @@ void move(int output)
   //GO MOTORS FORWARD.
   //if output is positive (bigger than zero) Robot is falling backwards.
   //GO MOTORS BACKWARDS.
+
   leftMotor->setSpeed(abs(output));
   rightMotor->setSpeed(abs(output));
+
   if(output > 0){
     leftMotor->run(BACKWARD);
     rightMotor->run(BACKWARD);
