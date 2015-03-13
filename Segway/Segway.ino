@@ -8,7 +8,7 @@ double Setpoint, Input, Output;
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
 
 //Specify the links and initial tuning parameters
-PID myPID(&Input, &Output, &Setpoint,0.01,1.5,0, DIRECT);
+PID myPID(&Input, &Output, &Setpoint,0.1,10,0, DIRECT);
 
 //Adafruit motorshield
 Adafruit_MotorShield motorShield = Adafruit_MotorShield();
@@ -34,8 +34,6 @@ void setup()
   
   //Adafruit motors
   motorShield.begin();
-  leftMotor->run(FORWARD);
-  rightMotor->run(FORWARD);
   
   Serial.begin(9600);
 }
@@ -46,7 +44,6 @@ void loop()
    Input = AcX;
    myPID.Compute();
    move(Output); 
-   Serial.println(Output);
 }
 
 //Function reads registers in MPU and assigned them to variables.
@@ -85,7 +82,6 @@ void move(int output)
   if(output > 0){
     leftMotor->run(BACKWARD);
     rightMotor->run(BACKWARD);
-
   } else if(output < 0) {
     leftMotor->run(FORWARD);
     rightMotor->run(FORWARD);
