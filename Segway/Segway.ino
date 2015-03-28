@@ -1,74 +1,163 @@
 #include <PID_v1.h>
+#include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>              //Adafruit motoshield library
 #include "utility/Adafruit_PWMServoDriver.h"   //Required for motorshield use
+#include <Adafruit_Sensor.h>
+#include <Adafruit_LSM9DS0.h>
+
 
 //Define Variables
 double Setpoint, Input, Output;
-int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
+sensors_event_t accel, mag, gyro, temp;
+int Dir = 0;
 
 //Specify the links and initial tuning parameters
-PID myPID(&Input, &Output, &Setpoint,0.1,10,0, DIRECT);
+PID myPID(&Input, &Output, &Setpoint,0.5,0,0, DIRECT);
 
 //Adafruit motorshield
 Adafruit_MotorShield motorShield = Adafruit_MotorShield();
-Adafruit_DCMotor *leftMotor = motorShield.getMotor(3);
+Adafruit_DCMotor *leftMotor = motorShield.getMotor(2);
 Adafruit_DCMotor *rightMotor = motorShield.getMotor(4);
 
-//Constant
-const int MPU=0x68;    //I2C address of the MPU
+/* Assign a unique base ID for this sensor */   
+Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(1000);  // Use I2C, ID #1000
 
 void setup()
 {
   //PID
-  Input = AcX;
-  Setpoint = 127;
+  Setpoint = 10.5;
   myPID.SetMode(AUTOMATIC); //turn the PID on
-  
-  //MPU Communications
-  Wire.begin();
-  Wire.beginTransmission(MPU);
-  Wire.write(0x6B); //Power managment 1 register (PWR_MGMT_1)
-  Wire.write(0);    //Wakes up the MPU
-  Wire.endTransmission(true);
+
   
   //Adafruit motors
   motorShield.begin();
+  leftMotor->run(RELEASE);
+  rightMotor->run(RELEASE);
+  
+ while (!Serial);  // wait for flora/leonardo
   
   Serial.begin(9600);
+  Serial.println(F("LSM9DS0 9DOF Sensor Test")); Serial.println("");
+  
+  /* Initialise the sensor */
+  if(!lsm.begin())
+  {
+    /* There was a problem detecting the LSM9DS0 ... check your connections */
+    Serial.print(F("Ooops, no LSM9DS0 detected ... Check your wiring or I2C ADDR!"));
+    while(1);
+  }
+  Serial.println(F("Found LSM9DS0 9DOF"));
+  
+  /* Display some basic information on this sensor */
+  displaySensorDetails();
+  
+  /* Setup the sensor gain and integration time */
+  configureSensor();
+  
+  /* We're ready to go! */
+  Serial.println("");
 }
 
 void loop()
-{
-   get_gyro();
-   Input = AcX;
-   myPID.Compute();
-   move(Output); 
+{  
+   lsm.getEvent(&accel, &mag, &gyro, &temp); 
+   
+   if( accel.acceleration.y < 10.1 ) {
+     if(gyro.gyro.x < 0){
+       Dir = -1;
+     }else if(gyro.gyro.x > 0 ) {
+       Dir = 1;
+     }
+     while(accel.acceleration.y < 10.1 && accel.acceleration.y > 0) { 
+       Input = accel.acceleration.y;
+       myPID.Compute();
+       move(Output, Dir);
+       Serial.print(accel.acceleration.y);
+       Serial.print("  ");
+       Serial.print(gyro.gyro.x);
+       Serial.print(" ");
+       Serial.print(Dir);
+       Serial.println(" ");
+       lsm.getEvent(&accel, &mag, &gyro, &temp);
+   }
+   }
+  //Serial.println(Output);
+   //delay(100);
 }
 
-//Function reads registers in MPU and assigned them to variables.
-//AcX, Y, and Z can be seen as "position"
-//GyX, Y, and Z are the speed in which the segway is falling
-//Refer to the MPU6050 code found online.
-void get_gyro()
+void displaySensorDetails(void)
 {
-  Wire.beginTransmission(MPU);
-  Wire.write(0x3B);
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU,14, true); //Requesting a total of 14 registers.
-  AcX=Wire.read()<<8|Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)     
-  AcY=Wire.read()<<8|Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
-  AcZ=Wire.read()<<8|Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
-  Tmp=Wire.read()<<8|Wire.read();  // 0x41 (TEMP_OUT_H) & 0x42 (TEMP_OUT_L)
-  GyX=Wire.read()<<8|Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
-  GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
-  GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
+  sensor_t accel, mag, gyro, temp;
   
+  lsm.getSensor(&accel, &mag, &gyro, &temp);
+  
+  Serial.println(F("------------------------------------"));
+  Serial.print  (F("Sensor:       ")); Serial.println(accel.name);
+  Serial.print  (F("Driver Ver:   ")); Serial.println(accel.version);
+  Serial.print  (F("Unique ID:    ")); Serial.println(accel.sensor_id);
+  Serial.print  (F("Max Value:    ")); Serial.print(accel.max_value); Serial.println(F(" m/s^2"));
+  Serial.print  (F("Min Value:    ")); Serial.print(accel.min_value); Serial.println(F(" m/s^2"));
+  Serial.print  (F("Resolution:   ")); Serial.print(accel.resolution); Serial.println(F(" m/s^2"));  
+  Serial.println(F("------------------------------------"));
+  Serial.println(F(""));
 
+  Serial.println(F("------------------------------------"));
+  Serial.print  (F("Sensor:       ")); Serial.println(mag.name);
+  Serial.print  (F("Driver Ver:   ")); Serial.println(mag.version);
+  Serial.print  (F("Unique ID:    ")); Serial.println(mag.sensor_id);
+  Serial.print  (F("Max Value:    ")); Serial.print(mag.max_value); Serial.println(F(" uT"));
+  Serial.print  (F("Min Value:    ")); Serial.print(mag.min_value); Serial.println(F(" uT"));
+  Serial.print  (F("Resolution:   ")); Serial.print(mag.resolution); Serial.println(F(" uT"));  
+  Serial.println(F("------------------------------------"));
+  Serial.println(F(""));
+
+  Serial.println(F("------------------------------------"));
+  Serial.print  (F("Sensor:       ")); Serial.println(gyro.name);
+  Serial.print  (F("Driver Ver:   ")); Serial.println(gyro.version);
+  Serial.print  (F("Unique ID:    ")); Serial.println(gyro.sensor_id);
+  Serial.print  (F("Max Value:    ")); Serial.print(gyro.max_value); Serial.println(F(" rad/s"));
+  Serial.print  (F("Min Value:    ")); Serial.print(gyro.min_value); Serial.println(F(" rad/s"));
+  Serial.print  (F("Resolution:   ")); Serial.print(gyro.resolution); Serial.println(F(" rad/s"));  
+  Serial.println(F("------------------------------------"));
+  Serial.println(F(""));
+
+  Serial.println(F("------------------------------------"));
+  Serial.print  (F("Sensor:       ")); Serial.println(temp.name);
+  Serial.print  (F("Driver Ver:   ")); Serial.println(temp.version);
+  Serial.print  (F("Unique ID:    ")); Serial.println(temp.sensor_id);
+  Serial.print  (F("Max Value:    ")); Serial.print(temp.max_value); Serial.println(F(" C"));
+  Serial.print  (F("Min Value:    ")); Serial.print(temp.min_value); Serial.println(F(" C"));
+  Serial.print  (F("Resolution:   ")); Serial.print(temp.resolution); Serial.println(F(" C"));  
+  Serial.println(F("------------------------------------"));
+  Serial.println(F(""));
 }
+
+void configureSensor(void)
+{
+  // 1.) Set the accelerometer range
+  lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_2G);
+  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_4G);
+  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_6G);
+  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_8G);
+  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_16G);
+  
+  // 2.) Set the magnetometer sensitivity
+  lsm.setupMag(lsm.LSM9DS0_MAGGAIN_2GAUSS);
+  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_4GAUSS);
+  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_8GAUSS);
+  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_12GAUSS);
+
+  // 3.) Setup the gyroscope
+  lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_245DPS);
+  //lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_500DPS);
+  //lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_2000DPS);
+}
+
+
 
 //Motor movement fucntion
-void move(int output)
+void move(int output, int dir)
 {
   //Check direction of output
   //if output is negative (less than zero) Robot is falling forward.
@@ -76,13 +165,13 @@ void move(int output)
   //if output is positive (bigger than zero) Robot is falling backwards.
   //GO MOTORS BACKWARDS.
 
-  leftMotor->setSpeed(abs(output));
-  rightMotor->setSpeed(abs(output));
+  leftMotor->setSpeed(abs(output)*255);
+  rightMotor->setSpeed(abs(output)*255);
 
-  if(output > 0){
+  if( dir == 1){
     leftMotor->run(BACKWARD);
     rightMotor->run(BACKWARD);
-  } else if(output < 0) {
+  } else if(dir == -1) {
     leftMotor->run(FORWARD);
     rightMotor->run(FORWARD);
   }
