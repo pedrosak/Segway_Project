@@ -11,7 +11,7 @@
 double Setpoint, Input, Output;
 sensors_event_t accel, mag, gyro, temp;
 //Specify the links and initial tuning parameters
-PID myPID(&Input, &Output, &Setpoint,100,0,0, DIRECT);
+PID myPID(&Input, &Output, &Setpoint,1,0,0, DIRECT);
 
 //Adafruit motorshield
 Adafruit_MotorShield motorShield = Adafruit_MotorShield();
@@ -47,8 +47,8 @@ configureSensor();
 Serial.println("");
 
 //PID
-Input = accel.acceleration.y;
-Setpoint = 10.2;
+Input = fabs((accel.acceleration.y) * ((gyro.gyro.x)/10));
+Setpoint = 0.3;
 myPID.SetMode(AUTOMATIC); //turn the PID on
 
 //Adafruit motors
@@ -58,7 +58,8 @@ motorShield.begin();
 void loop()
 {
   lsm.getEvent(&accel, &mag, &gyro, &temp);
-  Input = accel.acceleration.y;
+  Input = fabs((accel.acceleration.y) * ((gyro.gyro.x)/10));
+  //Serial.print(Input); Serial.print(" "); Serial.println(Output);
   myPID.Compute();
   move(Output, accel.acceleration.z);
 }
@@ -136,22 +137,28 @@ void configureSensor(void)
 //Motor movement fucntion
 void move(double output, int dir)
 {
-  Serial.println(output);
+  //Serial.println(output);
   leftMotor->setSpeed(fabs(output));
   rightMotor->setSpeed(fabs(output));
 
-  if( dir < -0.3)
+  if( dir < 0.0)
   {
     leftMotor->run(BACKWARD);
     rightMotor->run(BACKWARD);
+
+    Serial.print(accel.acceleration.z); Serial.print(" "); Serial.println("Backwards");
   } 
-  else if(dir > 0.3) 
+  else if(dir > 0.0) 
   {
     leftMotor->run(FORWARD);
     rightMotor->run(FORWARD);
+    Serial.print(accel.acceleration.z); Serial.print(" "); Serial.println("Forwards");
   }
-  else
+  else if (dir == -0.0)
   {
+    // leftMotor->run(RELEASE);
+    // rightMotor->run(RELEASE);
+    // Serial.println("BACKWARD and dir == -0.0");
     leftMotor->setSpeed(0);
     rightMotor->setSpeed(0);
   }
