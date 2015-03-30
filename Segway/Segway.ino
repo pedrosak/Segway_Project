@@ -10,10 +10,8 @@
 //Define Variables
 double Setpoint, Input, Output;
 sensors_event_t accel, mag, gyro, temp;
-int Dir = 0;
-
 //Specify the links and initial tuning parameters
-PID myPID(&Input, &Output, &Setpoint,0.5,0,0, DIRECT);
+PID myPID(&Input, &Output, &Setpoint,100,0,0, DIRECT);
 
 //Adafruit motorshield
 Adafruit_MotorShield motorShield = Adafruit_MotorShield();
@@ -25,73 +23,52 @@ Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(1000);  // Use I2C, ID #1000
 
 void setup()
 {
-  //PID
-  Setpoint = 10.5;
-  myPID.SetMode(AUTOMATIC); //turn the PID on
-
-  
-  //Adafruit motors
-  motorShield.begin();
-  leftMotor->run(RELEASE);
-  rightMotor->run(RELEASE);
-  
  while (!Serial);  // wait for flora/leonardo
-  
-  Serial.begin(9600);
-  Serial.println(F("LSM9DS0 9DOF Sensor Test")); Serial.println("");
-  
-  /* Initialise the sensor */
-  if(!lsm.begin())
-  {
-    /* There was a problem detecting the LSM9DS0 ... check your connections */
-    Serial.print(F("Ooops, no LSM9DS0 detected ... Check your wiring or I2C ADDR!"));
-    while(1);
-  }
-  Serial.println(F("Found LSM9DS0 9DOF"));
-  
-  /* Display some basic information on this sensor */
-  displaySensorDetails();
-  
-  /* Setup the sensor gain and integration time */
-  configureSensor();
-  
-  /* We're ready to go! */
-  Serial.println("");
+ 
+ Serial.begin(9600);
+ Serial.println(F("LSM9DS0 9DOF Sensor Test")); Serial.println("");
+ 
+ /* Initialise the sensor */
+ if(!lsm.begin())
+ {
+  /* There was a problem detecting the LSM9DS0 ... check your connections */
+  Serial.print(F("Ooops, no LSM9DS0 detected ... Check your wiring or I2C ADDR!"));
+  while(1);
+}
+Serial.println(F("Found LSM9DS0 9DOF"));
+
+/* Display some basic information on this sensor */
+displaySensorDetails();
+
+/* Setup the sensor gain and integration time */
+configureSensor();
+
+/* We're ready to go! */
+Serial.println("");
+
+//PID
+Input = accel.acceleration.y;
+Setpoint = 10.2;
+myPID.SetMode(AUTOMATIC); //turn the PID on
+
+//Adafruit motors
+motorShield.begin();
 }
 
 void loop()
-{  
-   lsm.getEvent(&accel, &mag, &gyro, &temp); 
-   
-   if( accel.acceleration.y < 10.1 ) {
-     if(gyro.gyro.x < 0){
-       Dir = -1;
-     }else if(gyro.gyro.x > 0 ) {
-       Dir = 1;
-     }
-     while(accel.acceleration.y < 10.1 && accel.acceleration.y > 0) { 
-       Input = accel.acceleration.y;
-       myPID.Compute();
-       move(Output, Dir);
-       Serial.print(accel.acceleration.y);
-       Serial.print("  ");
-       Serial.print(gyro.gyro.x);
-       Serial.print(" ");
-       Serial.print(Dir);
-       Serial.println(" ");
-       lsm.getEvent(&accel, &mag, &gyro, &temp);
-   }
-   }
-  //Serial.println(Output);
-   //delay(100);
+{
+  lsm.getEvent(&accel, &mag, &gyro, &temp);
+  Input = accel.acceleration.y;
+  myPID.Compute();
+  move(Output, accel.acceleration.z);
 }
 
 void displaySensorDetails(void)
 {
   sensor_t accel, mag, gyro, temp;
-  
+
   lsm.getSensor(&accel, &mag, &gyro, &temp);
-  
+
   Serial.println(F("------------------------------------"));
   Serial.print  (F("Sensor:       ")); Serial.println(accel.name);
   Serial.print  (F("Driver Ver:   ")); Serial.println(accel.version);
@@ -141,7 +118,7 @@ void configureSensor(void)
   //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_6G);
   //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_8G);
   //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_16G);
-  
+
   // 2.) Set the magnetometer sensitivity
   lsm.setupMag(lsm.LSM9DS0_MAGGAIN_2GAUSS);
   //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_4GAUSS);
@@ -157,22 +134,25 @@ void configureSensor(void)
 
 
 //Motor movement fucntion
-void move(int output, int dir)
+void move(double output, int dir)
 {
-  //Check direction of output
-  //if output is negative (less than zero) Robot is falling forward.
-  //GO MOTORS FORWARD.
-  //if output is positive (bigger than zero) Robot is falling backwards.
-  //GO MOTORS BACKWARDS.
+  Serial.println(output);
+  leftMotor->setSpeed(fabs(output));
+  rightMotor->setSpeed(fabs(output));
 
-  leftMotor->setSpeed(abs(output)*255);
-  rightMotor->setSpeed(abs(output)*255);
-
-  if( dir == 1){
+  if( dir < -0.3)
+  {
     leftMotor->run(BACKWARD);
     rightMotor->run(BACKWARD);
-  } else if(dir == -1) {
+  } 
+  else if(dir > 0.3) 
+  {
     leftMotor->run(FORWARD);
     rightMotor->run(FORWARD);
+  }
+  else
+  {
+    leftMotor->setSpeed(0);
+    rightMotor->setSpeed(0);
   }
 }
