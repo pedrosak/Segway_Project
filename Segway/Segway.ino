@@ -1,4 +1,3 @@
-#include <PID_v1.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>              //Adafruit motoshield library
@@ -9,9 +8,7 @@
 
 //Define Variables
 double Setpoint, Input, Output;
-sensors_event_t accel, mag, gyro, temp;
-//Specify the links and initial tuning parameters
-PID myPID(&Input, &Output, &Setpoint,1,0,0, DIRECT);
+sensors_event_t accel, mag, gyro, temp; //Specify the links and initial tuning parameters
 
 //Adafruit motorshield
 Adafruit_MotorShield motorShield = Adafruit_MotorShield();
@@ -21,16 +18,26 @@ Adafruit_DCMotor *rightMotor = motorShield.getMotor(4);
 /* Assign a unique base ID for this sensor */   
 Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(1000);  // Use I2C, ID #1000
 
+//PI
+double last_error = 0;
+
+double error = 0;
+double output = 0;
+double integrated_error = 0;
+double pTerm = 0, iTerm = 0, dTerm = 0;
+
+
 void setup()
 {
- while (!Serial);  // wait for flora/leonardo
  
- Serial.begin(9600);
- Serial.println(F("LSM9DS0 9DOF Sensor Test")); Serial.println("");
- 
- /* Initialise the sensor */
- if(!lsm.begin())
- {
+while (!Serial);  // wait for flora/leonardo
+
+Serial.begin(9600);
+Serial.println(F("LSM9DS0 9DOF Sensor Test")); Serial.println("");
+
+/* Initialise the sensor */
+if(!lsm.begin())
+{
   /* There was a problem detecting the LSM9DS0 ... check your connections */
   Serial.print(F("Ooops, no LSM9DS0 detected ... Check your wiring or I2C ADDR!"));
   while(1);
@@ -45,12 +52,6 @@ configureSensor();
 
 /* We're ready to go! */
 Serial.println("");
-
-//PID
-Input = fabs((accel.acceleration.y) * ((gyro.gyro.x)/10));
-Setpoint = 0.3;
-myPID.SetMode(AUTOMATIC); //turn the PID on
-
 //Adafruit motors
 motorShield.begin();
 }
@@ -58,10 +59,32 @@ motorShield.begin();
 void loop()
 {
   lsm.getEvent(&accel, &mag, &gyro, &temp);
-  Input = fabs((accel.acceleration.y) * ((gyro.gyro.x)/10));
-  //Serial.print(Input); Serial.print(" "); Serial.println(Output);
-  myPID.Compute();
-  move(Output, accel.acceleration.z);
+
+  double magG = sqrt(pow((float)accel.acceleration.y, 2) + pow((float)accel.acceleration.z, 2));
+  double angle = (((float)accel.acceleration.y)*10)/magG;
+
+  if(angle > 6.0 | angle < -6.0) {
+    while(1) {
+      leftMotor->run(FORWARD);
+      rightMotor->run(FORWARD);
+      Serial.println(" I fell, Help me up.");
+    }
+  }
+  
+  error = angle - 0;
+  pTerm = 5 * error;
+  integrated_error += error;
+  iTerm = constrain(0*integrated_error, -50,50);
+  dTerm = 4 * (error - last_error);
+  last_error = error;
+  output = constrain(1*(pTerm + iTerm + dTerm), -255, 255);
+
+
+  //Serial.print(accel.acceleration.y); Serial.print(" "); Serial.print(accel.acceleration.z);
+  //Serial.print(" "); Serial.print (magG); Serial.print(" "); 
+  Serial.print(angle);
+  Serial.print(" "); Serial.print(error);  Serial.print(" "); Serial.print(iTerm); Serial.print(" "); Serial.println(output);
+
 }
 
 void displaySensorDetails(void)
@@ -132,34 +155,23 @@ void configureSensor(void)
   //lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_2000DPS);
 }
 
-
-
 //Motor movement fucntion
-void move(double output, int dir)
+void move(double output)
 {
   //Serial.println(output);
-  leftMotor->setSpeed(fabs(output));
-  rightMotor->setSpeed(fabs(output));
+  leftMotor->setSpeed(abs(output));
+  rightMotor->setSpeed(abs(output));
 
-  if( dir < 0.0)
+  if(output < 0.0)
   {
     leftMotor->run(BACKWARD);
     rightMotor->run(BACKWARD);
-
-    Serial.print(accel.acceleration.z); Serial.print(" "); Serial.println("Backwards");
+    //Serial.print(accel.acceleration.z); Serial.print(" "); Serial.println("Backwards");
   } 
-  else if(dir > 0.0) 
+  else if(output > 0.0) 
   {
     leftMotor->run(FORWARD);
     rightMotor->run(FORWARD);
-    Serial.print(accel.acceleration.z); Serial.print(" "); Serial.println("Forwards");
-  }
-  else if (dir == -0.0)
-  {
-    // leftMotor->run(RELEASE);
-    // rightMotor->run(RELEASE);
-    // Serial.println("BACKWARD and dir == -0.0");
-    leftMotor->setSpeed(0);
-    rightMotor->setSpeed(0);
+    //Serial.print(accel.acceleration.z); Serial.print(" "); Serial.println("Forwards");
   }
 }
