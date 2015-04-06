@@ -65,28 +65,32 @@ void loop()
   double magG = sqrt(pow((float)accel.acceleration.y, 2) + pow((float)accel.acceleration.z, 2));
   double angle = (((float)accel.acceleration.y)*10)/magG;
 
-  // if(angle > 6.0 | angle < -6.0) {
-  //   while(1) {
-  //     leftMotor->run(FORWARD);
-  //     rightMotor->run(FORWARD);
-  //     Serial.println(" I fell, Help me up.");
-  //   }
-  // }
+  if(angle > 6.0 | angle < -6.0) {
+    while(1) {
+      leftMotor->run(RELEASE);
+      rightMotor->run(RELEASE);
+      Serial.println(" I fell, Help me up.");
+    }
+  }
   
-  error = angle - 0.35;
+  error = angle - 0.30;
   pTerm = 5 * error;
+
   integrated_error += error;
-  iTerm = constrain(0.5*integrated_error, -20,20);
+  iTerm = constrain(0.32*integrated_error, -20,20);
   dTerm = 9.8 * (error - last_error);
   last_error = error;
   output = constrain(4*(pTerm + iTerm + dTerm), -255, 255);
 
   move(output);
+   if(millis() == 2500) {
+    integrated_error = 0;
+    Serial.println("reset integrated_error");
+  }
   //Serial.print(accel.acceleration.y); Serial.print(" "); Serial.print(accel.acceleration.z);
   //Serial.print(" "); Serial.print (magG); Serial.print(" "); 
-  //Serial.print(angle);
-  //Serial.print(" "); Serial.print(error);  Serial.print(" "); Serial.print(dTerm); Serial.print(" "); 
-  Serial.println(output);
+  Serial.println(angle);
+  //Serial.print(" "); Serial.print(error);  Serial.print(" "); Serial.print(dTerm); Serial.print(" "); Serial.println(output);
 
 }
 
