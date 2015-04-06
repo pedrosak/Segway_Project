@@ -18,6 +18,8 @@ Adafruit_DCMotor *rightMotor = motorShield.getMotor(4);
 /* Assign a unique base ID for this sensor */   
 Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(1000);  // Use I2C, ID #1000
 
+
+////
 //PI
 double last_error = 0;
 
@@ -63,15 +65,15 @@ void loop()
   double magG = sqrt(pow((float)accel.acceleration.y, 2) + pow((float)accel.acceleration.z, 2));
   double angle = (((float)accel.acceleration.y)*10)/magG;
 
-  if(angle > 6.0 | angle < -6.0) {
-    while(1) {
-      leftMotor->run(FORWARD);
-      rightMotor->run(FORWARD);
-      Serial.println(" I fell, Help me up.");
-    }
-  }
+  // if(angle > 6.0 | angle < -6.0) {
+  //   while(1) {
+  //     leftMotor->run(FORWARD);
+  //     rightMotor->run(FORWARD);
+  //     Serial.println(" I fell, Help me up.");
+  //   }
+  // }
   
-  error = angle - 0;
+  error = angle - 0.35;
   pTerm = 5 * error;
   integrated_error += error;
   iTerm = constrain(0*integrated_error, -50,50);
@@ -83,7 +85,7 @@ void loop()
   //Serial.print(accel.acceleration.y); Serial.print(" "); Serial.print(accel.acceleration.z);
   //Serial.print(" "); Serial.print (magG); Serial.print(" "); 
   Serial.print(angle);
-  Serial.print(" "); Serial.print(error);  Serial.print(" "); Serial.print(iTerm); Serial.print(" "); Serial.println(output);
+  Serial.print(" "); Serial.print(error);  Serial.print(" "); Serial.print(dTerm); Serial.print(" "); Serial.println(output);
 
 }
 
