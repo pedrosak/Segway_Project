@@ -13,7 +13,7 @@ sensors_event_t accel, mag, gyro, temp; //Specify the links and initial tuning p
 //Adafruit motorshield
 Adafruit_MotorShield motorShield = Adafruit_MotorShield();
 Adafruit_DCMotor *leftMotor = motorShield.getMotor(2);
-Adafruit_DCMotor *rightMotor = motorShield.getMotor(4);
+Adafruit_DCMotor *rightMotor = motorShield.getMotor(3);
 
 /* Assign a unique base ID for this sensor */   
 Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(1000);  // Use I2C, ID #1000
@@ -76,16 +76,17 @@ void loop()
   error = angle - 0.35;
   pTerm = 5 * error;
   integrated_error += error;
-  iTerm = constrain(0*integrated_error, -50,50);
-  dTerm = 4 * (error - last_error);
+  iTerm = constrain(0.5*integrated_error, -20,20);
+  dTerm = 9.8 * (error - last_error);
   last_error = error;
-  output = constrain(1*(pTerm + iTerm + dTerm), -255, 255);
+  output = constrain(4*(pTerm + iTerm + dTerm), -255, 255);
 
-
+  move(output);
   //Serial.print(accel.acceleration.y); Serial.print(" "); Serial.print(accel.acceleration.z);
   //Serial.print(" "); Serial.print (magG); Serial.print(" "); 
-  Serial.print(angle);
-  Serial.print(" "); Serial.print(error);  Serial.print(" "); Serial.print(dTerm); Serial.print(" "); Serial.println(output);
+  //Serial.print(angle);
+  //Serial.print(" "); Serial.print(error);  Serial.print(" "); Serial.print(dTerm); Serial.print(" "); 
+  Serial.println(output);
 
 }
 
@@ -166,14 +167,14 @@ void move(double output)
 
   if(output < 0.0)
   {
-    leftMotor->run(BACKWARD);
-    rightMotor->run(BACKWARD);
+    leftMotor->run(FORWARD);
+    rightMotor->run(FORWARD);
     //Serial.print(accel.acceleration.z); Serial.print(" "); Serial.println("Backwards");
   } 
   else if(output > 0.0) 
   {
-    leftMotor->run(FORWARD);
-    rightMotor->run(FORWARD);
+    leftMotor->run(BACKWARD);
+    rightMotor->run(BACKWARD);
     //Serial.print(accel.acceleration.z); Serial.print(" "); Serial.println("Forwards");
   }
 }
