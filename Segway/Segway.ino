@@ -18,15 +18,22 @@ Adafruit_DCMotor *rightMotor = motorShield.getMotor(3);
 /* Assign a unique base ID for this sensor */   
 Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0(1000);  // Use I2C, ID #1000
 
-
+unsigned long previousMillis = 0;
+unsigned long currentMillis = 0;
 ////
 //PI
-double last_error = 0;
+double last_error_one = 0;
+double last_error_two = 0;
 
-double error = 0;
-double output = 0;
-double integrated_error = 0;
-double pTerm = 0, iTerm = 0, dTerm = 0;
+double error_one = 0;
+double output_one = 0;
+double integrated_error_one = 0;
+double pTerm_one = 0, iTerm_one = 0, dTerm_one = 0;
+
+double error_two = 0;
+double output_two = 0;
+double integrated_error_two = 0;
+double pTerm_two = 0, iTerm_two = 0, dTerm_two = 0;
 
 
 void setup()
@@ -56,10 +63,12 @@ configureSensor();
 Serial.println("");
 //Adafruit motors
 motorShield.begin();
+
 }
 
 void loop()
 {
+  currentMillis = millis();
   lsm.getEvent(&accel, &mag, &gyro, &temp);
 
   double magG = sqrt(pow((float)accel.acceleration.y, 2) + pow((float)accel.acceleration.z, 2));
@@ -73,24 +82,29 @@ void loop()
     }
   }
   
-  error = angle - 0.30;
-  pTerm = 5 * error;
+  error_one = angle - 0.29;
 
-  integrated_error += error;
-  iTerm = constrain(0.32*integrated_error, -20,20);
-  dTerm = 9.8 * (error - last_error);
-  last_error = error;
-  output = constrain(4*(pTerm + iTerm + dTerm), -255, 255);
+  pTerm_one = (5*error_one);
+  integrated_error_one += error_one;
+  iTerm_one = constrain((0.32*integrated_error_one), -20,20);
+  dTerm_one = 9.8*(error_one - last_error_one);
+  last_error_one = error_one;
+  output_one = constrain(4*(pTerm_one + iTerm_one + dTerm_one), -255, 255);
 
-  move(output);
-   if(millis() == 2500) {
-    integrated_error = 0;
-    Serial.println("reset integrated_error");
-  }
-  //Serial.print(accel.acceleration.y); Serial.print(" "); Serial.print(accel.acceleration.z);
-  //Serial.print(" "); Serial.print (magG); Serial.print(" "); 
-  Serial.println(angle);
-  //Serial.print(" "); Serial.print(error);  Serial.print(" "); Serial.print(dTerm); Serial.print(" "); Serial.println(output);
+  // error_two = (output_one + gyro.gyro.x) - 0.0;
+  // pTerm_two = 3.2 * error_two;
+  // dTerm_two = 0 * (error_two - last_error_two);
+  // last_error_two = error_two;
+  // output_two = constrain(1*(pTerm_two + iTerm_two + dTerm_two), -255, 255);
+
+  move(output_one);
+
+
+  //Serial.print(angle); Serial.print(" ");  Serial.print(gyro.gyro.x);Serial.print(" ");  Serial.print(gyro.gyro.y);Serial.print(" "); Serial.println(gyro.gyro.z);
+  //Serial.print(" "); Serial.print (magG); Serial.print(" "); Serial.println(output);
+  //Serial.print(" "); Serial.print(pTerm);  Serial.print(" "); Serial.print(iTerm); Serial.print(" "); Serial.println(dTerm);
+  Serial.println(output_two);
+
 
 }
 
@@ -182,3 +196,5 @@ void move(double output)
     //Serial.print(accel.acceleration.z); Serial.print(" "); Serial.println("Forwards");
   }
 }
+
+
